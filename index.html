@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DocuScan — Document Verification System</title>
+  <meta name="description" content="Upload your scanned document PDF for automated OCR verification. The system checks all required pages and returns a Pending or Incomplete status." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Animated background blobs -->
+  <div class="bg-blob blob-1"></div>
+  <div class="bg-blob blob-2"></div>
+  <div class="bg-blob blob-3"></div>
+
+  <div class="container">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">📋</span>
+        <div>
+          <h1>DocuScan</h1>
+          <p>Document Verification System</p>
+        </div>
+      </div>
+      <div class="header-badge">Powered by Tesseract OCR</div>
+    </header>
+
+    <!-- Requirements Card -->
+    <section class="requirements-card glass" aria-label="Document Requirements">
+      <h2>📌 Document Requirements</h2>
+      <p class="req-subtitle">Your scanned PDF must contain exactly <strong>6 pages</strong> in the following order:</p>
+      <div class="req-grid">
+        <div class="req-item">
+          <span class="req-badge form">Form</span>
+          <div class="req-detail">
+            <span class="req-pages">Pages 1 – 4</span>
+            <span class="req-desc">Filled application form fields (name, date, signature, etc.)</span>
+          </div>
+        </div>
+        <div class="req-item">
+          <span class="req-badge id">ID</span>
+          <div class="req-detail">
+            <span class="req-pages">Page 5</span>
+            <span class="req-desc">Valid government-issued ID picture</span>
+          </div>
+        </div>
+        <div class="req-item">
+          <span class="req-badge doc">Photo</span>
+          <div class="req-detail">
+            <span class="req-pages">Page 6</span>
+            <span class="req-desc">Supporting documentary photograph</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Upload Card -->
+    <section class="upload-card glass" aria-label="Upload Section">
+      <div id="drop-zone" class="drop-zone" role="button" tabindex="0" aria-label="Drop PDF here or click to browse">
+        <div class="drop-icon" id="drop-icon">📄</div>
+        <p class="drop-main" id="drop-main">Drop your PDF here</p>
+        <p class="drop-sub" id="drop-sub">or <span class="browse-link" id="browse-link">click to browse</span></p>
+        <p class="drop-limit">Maximum file size: 20 MB · PDF only</p>
+        <input type="file" id="file-input" accept="application/pdf" hidden />
+      </div>
+
+      <!-- File Preview Bar -->
+      <div id="file-preview" class="file-preview hidden">
+        <span class="file-icon">📎</span>
+        <div class="file-info">
+          <span class="file-name" id="file-name"></span>
+          <span class="file-size" id="file-size"></span>
+        </div>
+        <button class="file-remove" id="file-remove" aria-label="Remove file">✕</button>
+      </div>
+
+      <!-- Submit Button -->
+      <button id="upload-btn" class="upload-btn" disabled>
+        <span class="btn-text">Verify Document</span>
+        <span class="btn-arrow">→</span>
+      </button>
+    </section>
+
+    <!-- Progress Section -->
+    <section id="progress-section" class="progress-section glass hidden">
+      <div class="progress-header">
+        <div class="pulse-dot"></div>
+        <span id="progress-label">Uploading…</span>
+      </div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progress-bar"></div>
+      </div>
+      <div class="progress-steps">
+        <div class="step" id="step-1" data-step="upload">
+          <span class="step-icon">⬆</span><span>Upload</span>
+        </div>
+        <div class="step" id="step-2" data-step="convert">
+          <span class="step-icon">🔄</span><span>Convert</span>
+        </div>
+        <div class="step" id="step-3" data-step="ocr">
+          <span class="step-icon">🔍</span><span>OCR Scan</span>
+        </div>
+        <div class="step" id="step-4" data-step="validate">
+          <span class="step-icon">✔</span><span>Validate</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Results Section -->
+    <section id="results-section" class="results-section hidden">
+
+      <!-- Status Banner -->
+      <div id="status-banner" class="status-banner"></div>
+
+      <!-- Missing Requirements -->
+      <div id="missing-card" class="missing-card glass hidden">
+        <h3>📋 Failed Requirements Checklist</h3>
+        <p class="missing-subtitle">Please address these issues before re-uploading:</p>
+        <ul id="missing-list" class="missing-list"></ul>
+      </div>
+
+      <!-- Page Breakdown -->
+      <div class="breakdown-card glass" id="breakdown-card" style="display:none;">
+        <h3>📄 Page-by-Page Results</h3>
+        <div id="page-breakdown" class="page-breakdown"></div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="action-row">
+        <button class="action-btn secondary" id="try-again-btn">Upload Another</button>
+      </div>
+    </section>
+
+  </div>
+
+  <footer class="footer">
+    <p>DocuScan © 2026 · OCR powered by Tesseract · PHP Backend</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

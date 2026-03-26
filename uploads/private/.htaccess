@@ -1,0 +1,5 @@
+# Deny all direct access to uploaded PDF files
+<FilesMatch "\.pdf$">
+  Order Allow,Deny
+  Deny from all
+</FilesMatch>
