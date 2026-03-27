@@ -87,7 +87,8 @@ $stmt->execute([$uuid, basename($file['name'])]);
 $submissionId = (int) $pdo->lastInsertId();
 
 // Process the PDF
-$result = processSubmission($submissionId, $uuid, $destPath);
+$aiModel = $_POST['ai_model'] ?? 'gemini-flash-latest';
+$result = processSubmission($submissionId, $uuid, $destPath, $aiModel);
 
 // Return result
 echo json_encode(array_merge(['uuid' => $uuid], $result));

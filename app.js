@@ -257,6 +257,7 @@
     const formData = new FormData();
     formData.append('pdf', file);
     formData.append('engine', 'gemini');
+    formData.append('ai_model', document.getElementById('ai-model-select') ? document.getElementById('ai-model-select').value : 'gemini-flash-latest');
 
     const xhr = new XMLHttpRequest();
     xhr.upload.addEventListener('progress', e => {
