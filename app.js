@@ -5,124 +5,85 @@
 (function () {
   'use strict';
 
+  // ---- DOM Helper ----
+  const $ = id => document.getElementById(id);
+
   // ---- DOM refs ----
-  const dropZone       = document.getElementById('drop-zone');
-  const fileInput      = document.getElementById('file-input');
-  const browseLink     = document.getElementById('browse-link');
-  const filePreview    = document.getElementById('file-preview');
-  const fileNameEl     = document.getElementById('file-name');
-  const fileSizeEl     = document.getElementById('file-size');
-  const fileRemoveBtn  = document.getElementById('file-remove');
-  const uploadBtn      = document.getElementById('upload-btn');
-  const progressSec    = document.getElementById('progress-section');
-  const progressBar    = document.getElementById('progress-bar');
-  const progressLabel  = document.getElementById('progress-label');
-  const resultsSec     = document.getElementById('results-section');
-  const statusBanner   = document.getElementById('status-banner');
-  const missingCard    = document.getElementById('missing-card');
-  const missingList    = document.getElementById('missing-list');
-  const breakdownCard  = document.getElementById('breakdown-card');
-  const pageBreakdown  = document.getElementById('page-breakdown');
-  const tryAgainBtn    = document.getElementById('try-again-btn');
+  const dropZone       = $('drop-zone');
+  const fileInput      = $('file-input');
+  const browseLink     = $('browse-link');
+  const filePreview    = $('file-preview');
+  const fileNameEl     = $('file-name');
+  const fileSizeEl     = $('file-size');
+  const fileRemoveBtn  = $('file-remove');
+  const uploadBtn      = $('upload-btn');
+  const progressSec    = $('progress-section');
+  const progressBar    = $('progress-bar');
+  const progressLabel  = $('progress-label');
+  const resultsSec     = $('results-section');
+  const tryAgainBtn    = $('try-again-btn');
 
   const steps = [
-    document.getElementById('step-1'),
-    document.getElementById('step-2'),
-    document.getElementById('step-3'),
-    document.getElementById('step-4'),
+    $('step-1'), $('step-2'), $('step-3'), $('step-4')
   ];
 
   let selectedFile = null;
 
-  // ---- File Size Formatter ----
-  function formatBytes(bytes) {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  // ---- Drop Zone Logic ----
+  if (dropZone) {
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
+      dropZone.addEventListener(evt, e => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+    });
+
+    dropZone.addEventListener('dragenter', () => dropZone.classList.add('drag-active'));
+    dropZone.addEventListener('dragover',  () => dropZone.classList.add('drag-active'));
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-active'));
+    dropZone.addEventListener('drop', e => {
+      dropZone.classList.remove('drag-active');
+      handleFiles(e.dataTransfer.files);
+    });
   }
 
-  // ---- File Selection ----
-  function selectFile(file) {
-    if (!file) return;
+  if (browseLink) browseLink.onclick = () => fileInput && fileInput.click();
+  if (fileInput) fileInput.onchange = e => handleFiles(e.target.files);
 
-    // Client-side type check
+  function handleFiles(files) {
+    if (!files || files.length === 0) return;
+    const file = files[0];
     if (file.type !== 'application/pdf') {
-      showClientError('Only PDF files are accepted. Please select a valid PDF.');
+      alert('Invalid file type. Please upload a PDF.');
       return;
     }
-    // Client-side size check (20 MB)
-    if (file.size > 20 * 1024 * 1024) {
-      showClientError('File is too large. Maximum allowed size is 20 MB.');
-      return;
-    }
-
     selectedFile = file;
-    fileNameEl.textContent = file.name;
-    fileSizeEl.textContent = formatBytes(file.size);
-    filePreview.classList.remove('hidden');
-    uploadBtn.disabled = false;
-    hideResults();
+    if (fileNameEl) fileNameEl.textContent = file.name;
+    if (fileSizeEl) fileSizeEl.textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+    if (dropZone) dropZone.classList.add('hidden');
+    if (filePreview) filePreview.classList.remove('hidden');
+    if (uploadBtn) uploadBtn.disabled = false;
   }
 
   function clearFile() {
     selectedFile = null;
-    fileInput.value = '';
-    filePreview.classList.add('hidden');
-    uploadBtn.disabled = true;
-    hideResults();
-  }
-
-  function showClientError(msg) {
-    resultsSec.classList.remove('hidden');
-    progressSec.classList.add('hidden');
-    statusBanner.className = 'status-banner error';
-    statusBanner.innerHTML = `
-      <span class="status-icon">⚠</span>
-      <div class="status-text-wrap">
-        <span class="status-title">Invalid File</span>
-        <span class="status-sub">${escHtml(msg)}</span>
-      </div>`;
-    missingCard.classList.add('hidden');
-    breakdownCard.style.display = 'none';
-  }
-
-  function hideResults() {
-    resultsSec.classList.add('hidden');
-    progressSec.classList.add('hidden');
+    if (fileInput) fileInput.value = '';
+    if (filePreview) filePreview.classList.add('hidden');
+    if (dropZone) dropZone.classList.remove('hidden');
+    if (uploadBtn) uploadBtn.disabled = true;
     resetSteps();
   }
 
-  // ---- Drag & Drop ----
-  dropZone.addEventListener('click', () => fileInput.click());
-  browseLink.addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
-  dropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+  if (fileRemoveBtn) fileRemoveBtn.addEventListener('click', clearFile);
 
-  fileInput.addEventListener('change', () => {
-    if (fileInput.files[0]) selectFile(fileInput.files[0]);
-  });
-
-  dropZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    dropZone.classList.add('drag-over');
-  });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-  dropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropZone.classList.remove('drag-over');
-    const file = e.dataTransfer.files[0];
-    if (file) selectFile(file);
-  });
-
-  fileRemoveBtn.addEventListener('click', clearFile);
-
-  // ---- Progress Steps ----
   function resetSteps() {
-    steps.forEach(s => { s.classList.remove('active', 'done'); });
-    progressBar.style.width = '0%';
+    steps.forEach(s => { if(s) s.classList.remove('active', 'done'); });
+    if (progressBar) progressBar.style.width = '0%';
   }
 
   function activateStep(idx) {
     steps.forEach((s, i) => {
+      if (!s) return;
       if (i < idx)  { s.classList.remove('active'); s.classList.add('done'); }
       else if (i === idx) { s.classList.add('active'); s.classList.remove('done'); }
       else { s.classList.remove('active', 'done'); }
@@ -130,185 +91,227 @@
   }
 
   function setProgress(pct, label) {
-    progressBar.style.width = pct + '%';
-    if (label) progressLabel.textContent = label;
+    if (progressBar) progressBar.style.width = pct + '%';
+    if (progressLabel && label) progressLabel.textContent = label;
   }
 
-  // ---- HTML Escape ----
   function escHtml(str) {
-    return String(str)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  // ---- Render Results ----
+  // ---- Render Functions ----
   function renderResults(data) {
-    progressSec.classList.add('hidden');
-    resultsSec.classList.remove('hidden');
+    console.log("Rendering results...", data);
+    if (progressSec) progressSec.classList.add('hidden');
+    if (resultsSec)  resultsSec.classList.remove('hidden');
 
-    const status = data.status; // 'pending' | 'incomplete' | 'error'
+    // Hide input UI for cleaner results view
+    const reqCard = document.querySelector('.requirements-card');
+    const upCard  = document.querySelector('.upload-card');
+    if (reqCard) reqCard.classList.add('hidden');
+    if (upCard)  upCard.classList.add('hidden');
 
-    // Status banner
-    if (status === 'pending') {
-      statusBanner.className = 'status-banner pending';
-      statusBanner.innerHTML = `
-        <span class="status-icon">✅</span>
-        <div class="status-text-wrap">
-          <span class="status-title">PENDING</span>
-          <span class="status-sub">All ${data.pages.length} required pages are complete. Your document has been submitted successfully.</span>
-        </div>`;
-      missingCard.classList.add('hidden');
-    } else if (status === 'incomplete') {
-      statusBanner.className = 'status-banner incomplete';
-      statusBanner.innerHTML = `
-        <span class="status-icon">❌</span>
-        <div class="status-text-wrap">
-          <span class="status-title">INCOMPLETE</span>
-          <span class="status-sub">Your document is missing or has failed ${data.missing.length} requirement(s). Please review the details below.</span>
-        </div>`;
+    const statusBanner = $('status-banner');
+    const tabsList     = $('tabs-list');
+    const tabContent   = $('tab-content');
+    const resultsCard  = $('results-tabs-card');
+    const breakdownCard = $('breakdown-card');
+    const pageBreakdown = $('page-breakdown');
 
-      // Missing list
-      missingCard.classList.remove('hidden');
-      missingList.innerHTML = data.missing.map((m, i) =>
-        `<li style="animation-delay:${i * 0.06}s">${escHtml(m)}</li>`
-      ).join('');
-    } else {
-      statusBanner.className = 'status-banner error';
-      statusBanner.innerHTML = `
-        <span class="status-icon">⚠</span>
-        <div class="status-text-wrap">
-          <span class="status-title">Processing Error</span>
-          <span class="status-sub">${escHtml(data.message || 'An unexpected error occurred.')}</span>
-        </div>`;
-      missingCard.classList.add('hidden');
+    // 1. Status Banner
+    if (statusBanner) {
+      if (data.status === 'pending') {
+        statusBanner.className = 'status-banner pending';
+        statusBanner.innerHTML = `<h3>✅ Verification Complete</h3><p>We've successfully processed all pages. Detailed breakdown below.</p>`;
+      } else {
+        statusBanner.className = 'status-banner error';
+        statusBanner.innerHTML = `<h3>⚠️ Document Incomplete</h3><p>We detected issues with your submission. Please review the breakdown below.</p>`;
+      }
     }
 
-    // Page breakdown
-    if (data.pages && data.pages.length > 0) {
-      breakdownCard.style.display = '';
-      const typeLabels = { form: 'Form', id_picture: 'ID Picture', documentary: 'Documentary' };
-      const typeBadge  = { form: 'badge-form', id_picture: 'badge-id', documentary: 'badge-doc' };
+    // 2. Master Data Table
+    if (breakdownCard && pageBreakdown) {
+      // Preference list for important columns
+    const commonLabels = { 
+      given_name: 'Given Name', last_name: 'Last Name', middle_name: 'Middle Name', 
+      dob: 'DOB', age: 'Age', full_name: 'Full Name', id_type: 'ID Type', 
+      id_number: 'ID Number', expiration_date: 'Expiration Date', description: 'Description'
+    };
+    
+    // Find ALL unique keys present across all pages (excluding raw_text)
+    let allFoundKeys = new Set();
+    data.pages.forEach(p => {
+      if (p.metadata) {
+        Object.keys(p.metadata).forEach(k => {
+          if (k !== 'raw_text' && p.metadata[k] && p.metadata[k] !== 'Not Detected') {
+            allFoundKeys.add(k);
+          }
+        });
+      }
+    });
 
-      pageBreakdown.innerHTML = data.pages.map((p, i) => {
-        const valid   = p.valid;
-        const label   = typeLabels[p.type] || p.type;
-        const badgeCls = typeBadge[p.type] || 'badge-form';
-        const issues  = p.issues || [];
+    // Sort keys: favored ones first, then others alphabetically
+    const activeCols = Array.from(allFoundKeys).sort((a, b) => {
+      const aIdx = Object.keys(commonLabels).indexOf(a);
+      const bIdx = Object.keys(commonLabels).indexOf(b);
+      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+      if (aIdx !== -1) return -1;
+      if (bIdx !== -1) return 1;
+      return a.localeCompare(b);
+    });
 
-        const issueHtml = issues.length
-          ? issues.map(iss => `<span class="page-issue">✕ ${iss}</span>`).join('')
-          : `<span class="page-ok">✓ Passed validation</span>`;
+    const getLabel = key => commonLabels[key] || key.replace(/_/g, ' ').toUpperCase();
 
-        return `
-          <div class="page-item ${valid ? 'valid' : 'invalid'}" style="animation-delay:${i * 0.07}s">
-            <span class="page-num">Pg ${p.page}</span>
-            <div class="page-info">
-              <span class="page-label">
-                Page ${p.page}
-                <span class="page-type-badge ${badgeCls}">${label}</span>
-              </span>
-              <div class="page-issues">${issueHtml}</div>
-            </div>
-            <span class="page-status-icon">${valid ? '✅' : '❌'}</span>
-          </div>`;
-      }).join('');
-    } else {
-      breakdownCard.style.display = 'none';
+      breakdownCard.style.display = 'block';
+      pageBreakdown.innerHTML = `
+        <div class="table-scroll">
+          <table class="metadata-table master-table">
+            <thead>
+              <tr>
+                <th>Page</th>
+                <th>Status</th>
+                ${activeCols.map(key => `<th>${getLabel(key)}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${data.pages.map(p => {
+                const meta = p.metadata || {};
+                return `
+                  <tr>
+                    <td><div class="page-link-cell"><strong>Page ${p.page}</strong><span class="type-sub">${p.type.toUpperCase()}</span></div></td>
+                    <td><span class="status-pill ${p.valid ? 'pass' : 'fail'}">${p.valid ? 'Valid' : 'Invalid'}</span></td>
+                    ${activeCols.map(key => `<td class="${meta[key] ? '' : 'muted'} ${key === 'id_type' ? 'id-type-highlight' : ''}">${escHtml(meta[key] || '-')}</td>`).join('')}
+                  </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>`;
     }
 
-    // Scroll to results
-    setTimeout(() => {
-      resultsSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100);
+    // 3. Tabbed Details
+    if (resultsCard && tabsList) {
+      resultsCard.classList.remove('hidden');
+      tabsList.innerHTML = data.pages.map((p, i) => `
+        <button class="tab-btn ${i === 0 ? 'active' : ''} ${p.valid ? '' : 'invalid-tab'}" data-page="${p.page}">
+          Page ${p.page}
+        </button>`).join('');
+
+      tabsList.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.onclick = () => {
+          tabsList.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          switchTab(btn.dataset.page, data, tabContent);
+        };
+      });
+      
+      // Default to first tab
+      if (data.pages.length > 0) switchTab(data.pages[0].page, data, tabContent);
+    }
   }
 
-  // ---- Upload ----
-  uploadBtn.addEventListener('click', () => {
-    if (!selectedFile) return;
+  function switchTab(pageNum, data, tabContent) {
+    if (!tabContent) return;
+    const pageData = data.pages.find(p => p.page == pageNum);
+    if (!pageData) return;
 
-    // Show progress
-    hideResults();
-    progressSec.classList.remove('hidden');
-    uploadBtn.disabled = true;
+    const labels = { 
+      given_name: 'Given Name', last_name: 'Last Name', middle_name: 'Middle Name', 
+      dob: 'DOB', age: 'Age', id_type: 'ID Type', id_number: 'ID Number', 
+      full_name: 'Full Name', expiration_date: 'Expiration Date' 
+    };
+    const metadata = pageData.metadata || {};
+    const metaKeys = Object.keys(metadata).filter(k => k !== 'raw_text' && metadata[k] !== null && metadata[k] !== undefined);
+    
+    let metaHtml = metaKeys.length > 0 
+      ? `<div class="data-section"><h4>📋 Extracted Metadata</h4><table class="metadata-table"><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+          ${metaKeys.map(k => `<tr><td class="meta-label">${labels[k] || k.replace(/_/g, ' ').toUpperCase()}</td><td class="meta-val">${escHtml(metadata[k])}</td></tr>`).join('')}
+         </tbody></table></div>`
+      : `<p class="empty-msg">No structured data extracted.</p>`;
+
+    const issuesHtml = pageData.issues.length > 0
+      ? `<div class="data-section"><h4>🚩 Validation Status</h4><ul class="missing-list">${pageData.issues.map(iss => `<li class="error-li">${escHtml(iss)}</li>`).join('')}</ul></div>`
+      : `<div class="data-section"><h4>✅ Status</h4><p class="pass-msg">Page passed all checks.</p></div>`;
+
+    const isMissing = !pageData.image_path;
+    tabContent.innerHTML = `
+      <div class="page-detail-layout ${isMissing ? 'page-missing-layout' : ''}">
+        <div class="page-preview-side">
+          <div class="page-preview-box ${isMissing ? 'missing' : ''}">
+             ${isMissing ? '<div class="missing-placeholder"><span>Missing</span></div>' : `<img src="${pageData.image_path}" alt="Page ${pageData.page}" />`}
+          </div>
+        </div>
+        <div class="page-data-side">
+          ${isMissing ? `<div class="missing-hero"><h3>⚠️ Page Not Found</h3><p>Required page not detected.</p></div>` : `${metaHtml}${issuesHtml}<div class="data-section"><h4>📄 OCR Text Insight</h4><div class="raw-text-display">${escHtml(pageData.text_preview || 'No text detected.')}</div></div>`}
+        </div>
+      </div>`;
+  }
+
+  function uploadFile(file) {
+    if (resultsSec) resultsSec.classList.add('hidden');
+    if (progressSec) progressSec.classList.remove('hidden');
     resetSteps();
     activateStep(0);
-    setProgress(5, 'Uploading PDF…');
+    setProgress(5, 'Preparing document…');
 
     const formData = new FormData();
-    formData.append('pdf', selectedFile);
+    formData.append('pdf', file);
+    formData.append('engine', 'gemini');
 
     const xhr = new XMLHttpRequest();
-
-    // Upload progress
-    xhr.upload.addEventListener('progress', (e) => {
+    xhr.upload.addEventListener('progress', e => {
       if (e.lengthComputable) {
-        const pct = Math.round((e.loaded / e.total) * 40); // 0–40%
-        setProgress(pct, 'Uploading PDF…');
+        const pct = Math.round((e.loaded / e.total) * 40);
+        setProgress(pct, 'Uploading…');
+        if (pct >= 40) activateStep(1);
       }
     });
 
-    xhr.upload.addEventListener('load', () => {
-      setProgress(42, 'Converting PDF pages…');
-      activateStep(1);
-    });
-
-    xhr.addEventListener('load', () => {
-      try {
-        const data = JSON.parse(xhr.responseText);
-
-        if (data.error) {
-          progressSec.classList.add('hidden');
-          resultsSec.classList.remove('hidden');
-          statusBanner.className = 'status-banner error';
-          statusBanner.innerHTML = `
-            <span class="status-icon">⚠</span>
-            <div class="status-text-wrap">
-              <span class="status-title">Upload Error</span>
-              <span class="status-sub">${escHtml(data.error)}</span>
-            </div>`;
-          missingCard.classList.add('hidden');
-          breakdownCard.style.display = 'none';
-          uploadBtn.disabled = false;
-          return;
-        }
-
-        // Simulate step progress for UX (processing already done server-side)
-        setProgress(65, 'Running OCR scan…');
-        activateStep(2);
-
-        setTimeout(() => {
-          setProgress(88, 'Validating pages…');
-          activateStep(3);
-        }, 600);
-
-        setTimeout(() => {
-          setProgress(100, 'Complete!');
-          steps.forEach(s => { s.classList.remove('active'); s.classList.add('done'); });
-
-          setTimeout(() => renderResults(data), 400);
-        }, 1200);
-
-      } catch (e) {
-        showClientError('Unexpected server response. Please try again.');
-        uploadBtn.disabled = false;
+    xhr.onreadystatechange = () => {
+      if (xhr.readyState === 4) {
+        if (xhr.status === 200) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (data.error) { alert(data.error); clearFile(); } 
+            else { activateStep(4); setProgress(100, 'Complete!'); setTimeout(() => renderResults(data), 500); }
+          } catch (e) { alert('Invalid server response.'); clearFile(); }
+        } else { alert('Verification failed (Server Error 500).'); clearFile(); }
       }
-    });
+    };
 
-    xhr.addEventListener('error', () => {
-      showClientError('Network error. Please check your connection and try again.');
-      uploadBtn.disabled = false;
-      progressSec.classList.add('hidden');
-    });
+    setTimeout(() => { if (xhr.readyState < 4) { activateStep(2); setProgress(60, 'AI Extraction…'); } }, 3000);
+    setTimeout(() => { if (xhr.readyState < 4) { activateStep(3); setProgress(85, 'Finalizing…'); } }, 8000);
 
     xhr.open('POST', 'upload.php');
     xhr.send(formData);
-  });
+  }
 
-  // ---- Try Again ----
-  tryAgainBtn.addEventListener('click', () => {
-    clearFile();
-    hideResults();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  });
+  if (uploadBtn) uploadBtn.onclick = () => selectedFile && uploadFile(selectedFile);
+  
+  const expandReportBtn = $('expand-report-btn');
+  const breakdownCard   = $('breakdown-card');
+  if (expandReportBtn && breakdownCard) {
+    expandReportBtn.onclick = () => {
+      breakdownCard.classList.toggle('expanded');
+      expandReportBtn.innerHTML = breakdownCard.classList.contains('expanded') ? '✖' : '⛶';
+      document.body.style.overflow = breakdownCard.classList.contains('expanded') ? 'hidden' : '';
+    };
+  }
+  
+  if (tryAgainBtn) tryAgainBtn.onclick = () => { 
+    clearFile(); 
+    if (resultsSec) resultsSec.classList.add('hidden'); 
+    if (breakdownCard) breakdownCard.classList.remove('expanded');
+    if (expandReportBtn) expandReportBtn.innerHTML = '⛶';
+    document.body.style.overflow = '';
+    
+    // Show input UI again
+    const reqCard = document.querySelector('.requirements-card');
+    const upCard  = document.querySelector('.upload-card');
+    if (reqCard) reqCard.classList.remove('hidden');
+    if (upCard)  upCard.classList.remove('hidden');
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' }); 
+  };
 
 })();

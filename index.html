@@ -27,7 +27,9 @@
           <p>Document Verification System</p>
         </div>
       </div>
-      <div class="header-badge">Powered by Tesseract OCR</div>
+      <div class="header-right">
+        <div class="header-badge">Powered by Gemini AI</div>
+      </div>
     </header>
 
     <!-- Requirements Card -->
@@ -117,22 +119,31 @@
       <!-- Status Banner -->
       <div id="status-banner" class="status-banner"></div>
 
-      <!-- Missing Requirements -->
-      <div id="missing-card" class="missing-card glass hidden">
-        <h3>📋 Failed Requirements Checklist</h3>
-        <p class="missing-subtitle">Please address these issues before re-uploading:</p>
-        <ul id="missing-list" class="missing-list"></ul>
+      <!-- Overall Breakdown (Summary) -->
+      <div class="breakdown-card glass" id="breakdown-card" style="display:none;">
+        <div class="breakdown-header">
+          <h3>📄 AI Extraction Report (All Pages)</h3>
+          <button id="expand-report-btn" class="icon-btn" aria-label="Expand Report">⛶</button>
+        </div>
+        <div id="page-breakdown" class="page-breakdown"></div>
       </div>
 
-      <!-- Page Breakdown -->
-      <div class="breakdown-card glass" id="breakdown-card" style="display:none;">
-        <h3>📄 Page-by-Page Results</h3>
-        <div id="page-breakdown" class="page-breakdown"></div>
+      <!-- Multi-Page Tabs Container -->
+      <div id="results-tabs-card" class="results-tabs-card glass hidden">
+        <div class="tabs-header">
+           <div id="tabs-list" class="tabs-list">
+             <!-- Tabs (Page 1 - 6) dynamically filled -->
+           </div>
+        </div>
+        <div id="tab-content" class="tab-content">
+           <!-- Active page details dynamically filled -->
+        </div>
       </div>
 
       <!-- Action Buttons -->
       <div class="action-row">
         <button class="action-btn secondary" id="try-again-btn">Upload Another</button>
+        <button class="action-btn primary" id="map-areas-btn" style="display:none;">Map Areas</button>
       </div>
     </section>
 
@@ -142,6 +153,6 @@
     <p>DocuScan © 2026 · OCR powered by Tesseract · PHP Backend</p>
   </footer>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=1.1"></script>
 </body>
 </html>

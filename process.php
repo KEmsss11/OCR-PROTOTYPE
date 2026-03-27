@@ -88,6 +88,33 @@ function pdfToImages(string $pdfPath, string $outputDir): array|false {
     return $pages;
 }
 
+require_once __DIR__ . '/ocr_gemini.php';
+
+/**
+ * Extracts specific fields from OCR text using Gemini 1.5 Flash (Vision).
+ */
+function extractPageMetadata(string $imagePath, string $pageType = 'form', int $pageNum = 1): array {
+    $geminiJson = runGeminiOCR($imagePath, $pageType);
+    $geminiData = json_decode($geminiJson, true);
+    
+    if ($geminiData && !isset($geminiData['error'])) {
+        return $geminiData;
+    }
+
+    $errorMessage = 'AI was unable to extract structured data from this page.';
+    if (isset($geminiData['error'])) {
+        $errorMessage = 'API Error: ' . (is_string($geminiData['error']) ? $geminiData['error'] : json_encode($geminiData['error']));
+        if (isset($geminiData['details'])) {
+            $errorMessage .= "\n" . (is_string($geminiData['details']) ? $geminiData['details'] : json_encode($geminiData['details']));
+        }
+    }
+
+    return [
+        'error'    => 'Extraction failed',
+        'raw_text' => $errorMessage
+    ];
+}
+
 /**
  * Main processing function.
  * Converts PDF → images, runs OCR/validation on each page,
@@ -99,91 +126,79 @@ function processSubmission(int $submissionId, string $uuid, string $pdfPath): ar
     $pages     = pdfToImages($pdfPath, $outputDir);
 
     if ($pages === false || empty($pages)) {
-        // Check if it's a missing Ghostscript issue
         $gsFound = findGhostscript();
         $msg = $gsFound === false
-            ? 'Ghostscript is not installed on this server. Please download and install it from https://www.ghostscript.com/ then restart Apache.'
-            : 'Ghostscript was found but failed to convert the PDF. The file may be corrupted, password-protected, or an unsupported format.';
+            ? 'Ghostscript is not installed on this server.'
+            : 'Ghostscript was found but failed to convert the PDF.';
 
         $pdo->prepare("UPDATE submissions SET status='error', processed_at=NOW() WHERE id=?")
             ->execute([$submissionId]);
-        return [
-            'status'  => 'error',
-            'message' => $msg,
-            'missing' => [],
-            'pages'   => [],
-        ];
+        return ['status' => 'error', 'message' => $msg, 'missing' => [], 'pages' => []];
     }
 
     $totalPages  = count($pages);
     $allMissing  = [];
     $pageDetails = [];
 
-    // Determine expected page types
     $pageTypeMap = [];
-    foreach (FORM_PAGES as $p)   $pageTypeMap[$p] = 'form';
+    foreach (FORM_PAGES as $p) $pageTypeMap[$p] = 'form';
     $pageTypeMap[ID_PAGE]          = 'id_picture';
     $pageTypeMap[DOCUMENTARY_PAGE] = 'documentary';
 
-    // --- Check required page count ---
     if ($totalPages < REQUIRED_PAGES) {
         for ($p = $totalPages + 1; $p <= REQUIRED_PAGES; $p++) {
-            $label = match(true) {
-                in_array($p, FORM_PAGES)   => "Page $p: Form page missing",
-                $p === ID_PAGE             => "Page $p: ID picture page missing",
-                $p === DOCUMENTARY_PAGE    => "Page $p: Documentary photo page missing",
-                default                    => "Page $p: Required page missing",
-            };
-            $allMissing[] = $label;
+            $allMissing[] = "Page $p: Required page missing";
         }
     }
 
-    // --- Process each existing page up to 6 ---
-    // We only care if the page exists. If it exists, it's valid.
     for ($pageNum = 1; $pageNum <= max($totalPages, REQUIRED_PAGES); $pageNum++) {
         $imagePath = $pages[$pageNum] ?? null;
         $type      = $pageTypeMap[$pageNum] ?? 'form';
-        $isValid   = ($imagePath !== null);
-        $issues    = [];
+        
+        $metadata = [];
+        if ($imagePath) {
+            $metadata = extractPageMetadata($imagePath, $type, $pageNum);
+        }
+
+        // Use 'raw_text' from Gemini for validation if available
+        $ocrText = $metadata['raw_text'] ?? '';
+        // Validate using structured metadata
+        $isValid = validatePage($metadata, $type, $pageNum);
+        $issues  = getValidationIssues($metadata, $type, $pageNum);
 
         if (!$isValid && $pageNum <= REQUIRED_PAGES) {
-            // This is already handled in $allMissing above, but we track per-page status here too
-            $issues[] = "Page $pageNum is missing from the uploaded document.";
+            $issues[] = "Page $pageNum is missing or invalid.";
         }
 
         // Save page result to DB
         $stmt = $pdo->prepare(
             "INSERT INTO page_results 
-             (submission_id, page_number, page_type, image_path, ocr_text, is_valid, issues)
-             VALUES (?, ?, ?, ?, ?, ?, ?)"
+             (submission_id, page_number, page_type, image_path, ocr_text, metadata, is_valid, issues)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         );
         $stmt->execute([
-            $submissionId,
-            $pageNum,
-            $type,
-            $imagePath ? str_replace(BASE_DIR, '', $imagePath) : '',
-            null, // No OCR text anymore
-            $isValid ? 1 : 0,
-            json_encode($issues),
+            $submissionId, $pageNum, $type,
+            $imagePath ? ltrim(str_ireplace([BASE_DIR, '\\'], ['', '/'], $imagePath), '/') : '',
+            $ocrText ?: null, json_encode($metadata),
+            $isValid ? 1 : 0, json_encode($issues),
         ]);
 
         $pageDetails[$pageNum] = [
-            'page'   => $pageNum,
-            'type'   => $type,
-            'valid'  => $isValid,
-            'issues' => $issues,
-            'text_preview' => null,
+            'page'         => $pageNum,
+            'type'         => $type,
+            'valid'        => $isValid,
+            'issues'       => $issues,
+            'metadata'     => $metadata,
+            'image_path'   => $imagePath ? ltrim(str_ireplace([BASE_DIR, '\\'], ['', '/'], $imagePath), '/') : '',
+            'text_preview' => $ocrText ? mb_substr($ocrText, 0, 120) . '...' : null,
         ];
     }
 
     $finalStatus = empty($allMissing) ? 'pending' : 'incomplete';
+    $summaryMeta = $pageDetails[1]['metadata'] ?? null;
 
-    // Update submission record
-    $pdo->prepare(
-        "UPDATE submissions 
-         SET status=?, total_pages=?, missing_pages=?, processed_at=NOW() 
-         WHERE id=?"
-    )->execute([$finalStatus, $totalPages, json_encode($allMissing), $submissionId]);
+    $pdo->prepare("UPDATE submissions SET status=?, total_pages=?, missing_pages=?, metadata=?, processed_at=NOW() WHERE id=?")
+        ->execute([$finalStatus, $totalPages, json_encode($allMissing), json_encode($summaryMeta), $submissionId]);
 
     return [
         'status'  => $finalStatus,
