@@ -8,7 +8,7 @@ require_once __DIR__ . '/validate.php';
  * Auto-detect the Ghostscript executable on Windows.
  * Scans common install directories so users don't have to set exact paths.
  */
-function findGhostscript(): string|false {
+function findGhostscript(): ?string {
     // 1. Try the configured path first
     if (defined('GHOSTSCRIPT_BIN') && file_exists(GHOSTSCRIPT_BIN)) {
         return GHOSTSCRIPT_BIN;
@@ -39,22 +39,22 @@ function findGhostscript(): string|false {
         }
     }
 
-    return false;
+    return null;
 }
 
 /**
  * Convert a PDF to per-page PNG images using Ghostscript.
  * Returns array of image file paths, or false on failure.
  */
-function pdfToImages(string $pdfPath, string $outputDir): array|false {
+function pdfToImages(string $pdfPath, string $outputDir): ?array {
     if (!is_dir($outputDir)) {
         mkdir($outputDir, 0755, true);
     }
 
     $gsBin = findGhostscript();
-    if ($gsBin === false) {
+    if ($gsBin === null) {
         error_log('Ghostscript not found on this system.');
-        return false;
+        return null;
     }
 
     $outputPattern = $outputDir . '/page-%d.png';
@@ -72,7 +72,7 @@ function pdfToImages(string $pdfPath, string $outputDir): array|false {
 
     if ($returnCode !== 0) {
         error_log('Ghostscript error (exit ' . $returnCode . '): ' . implode("\n", $output));
-        return false;
+        return null;
     }
 
     // Collect generated files
@@ -93,8 +93,8 @@ require_once __DIR__ . '/ocr_gemini.php';
 /**
  * Extracts specific fields from OCR text using Gemini 1.5 Flash (Vision).
  */
-function extractPageMetadata(string $imagePath, string $pageType = 'form', int $pageNum = 1): array {
-    $geminiJson = runGeminiOCR($imagePath, $pageType);
+function extractPageMetadata(string $imagePath, string $pageType = 'form', int $pageNum = 1, string $aiModel = 'gemini-flash-latest'): array {
+    $geminiJson = runGeminiOCR($imagePath, $pageType, $aiModel);
     $geminiData = json_decode($geminiJson, true);
     
     if ($geminiData && !isset($geminiData['error'])) {
@@ -120,14 +120,14 @@ function extractPageMetadata(string $imagePath, string $pageType = 'form', int $
  * Converts PDF → images, runs OCR/validation on each page,
  * saves results to DB, and returns a structured result array.
  */
-function processSubmission(int $submissionId, string $uuid, string $pdfPath): array {
+function processSubmission(int $submissionId, string $uuid, string $pdfPath, string $aiModel = 'gemini-flash-latest'): array {
     $pdo       = getDB();
     $outputDir = UPLOAD_PAGES . $uuid;
     $pages     = pdfToImages($pdfPath, $outputDir);
 
-    if ($pages === false || empty($pages)) {
+    if ($pages === null || empty($pages)) {
         $gsFound = findGhostscript();
-        $msg = $gsFound === false
+        $msg = $gsFound === null
             ? 'Ghostscript is not installed on this server.'
             : 'Ghostscript was found but failed to convert the PDF.';
 
@@ -157,7 +157,7 @@ function processSubmission(int $submissionId, string $uuid, string $pdfPath): ar
         
         $metadata = [];
         if ($imagePath) {
-            $metadata = extractPageMetadata($imagePath, $type, $pageNum);
+            $metadata = extractPageMetadata($imagePath, $type, $pageNum, $aiModel);
         }
 
         // Use 'raw_text' from Gemini for validation if available

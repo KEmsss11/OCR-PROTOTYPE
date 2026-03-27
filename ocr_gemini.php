@@ -4,7 +4,7 @@ require_once __DIR__ . '/config.php';
 /**
  * Sends an image to Gemini Vision API to extract structured data.
  */
-function runGeminiOCR(string $imagePath, string $pageType = 'form'): string {
+function runGeminiOCR(string $imagePath, string $pageType = 'form', string $model = 'gemini-flash-latest'): string {
     if (!defined('GEMINI_API_KEY') || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE' || empty(GEMINI_API_KEY)) {
         return json_encode(['error' => 'Gemini API Key not configured.']);
     }
@@ -12,8 +12,8 @@ function runGeminiOCR(string $imagePath, string $pageType = 'form'): string {
     $imageData = base64_encode(file_get_contents($imagePath));
     $mimeType = mime_content_type($imagePath);
 
-    // Using the default gemini-flash-latest mapping
-    $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=" . GEMINI_API_KEY;
+    // Using the user-selected AI model
+    $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key=" . GEMINI_API_KEY;
 
     // Tailor prompt based on page type
     if ($pageType === 'id_picture' || $pageType === 'documentary') {
@@ -62,7 +62,6 @@ function runGeminiOCR(string $imagePath, string $pageType = 'form'): string {
 
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
 
     if ($httpCode !== 200) {
         return json_encode(['error' => 'Gemini API Request failed with code ' . $httpCode, 'details' => $response]);
