@@ -2,32 +2,30 @@
 require_once __DIR__ . '/config.php';
 
 /**
- * Validate pages 1–4 (form pages) using OCR text.
+ * Validate pages 1–4 (form pages) using OCR metadata.
  */
-function validateFormPage(string $text, int $pageNum): array {
+function validateFormPage(array $metadata, int $pageNum): array {
     $issues = [];
 
-    // Check minimum text length
-    $cleaned = preg_replace('/\s+/', ' ', $text);
-    if (strlen($cleaned) < FORM_MIN_CHARS) {
-        $issues[] = "Page $pageNum appears blank or has insufficient text (less than " . FORM_MIN_CHARS . " characters detected).";
+    if (isset($metadata['error'])) {
+        $issues[] = "Page $pageNum Data Extraction Error: " . ($metadata['raw_text'] ?? 'Unknown Error');
+        return ['valid' => false, 'issues' => $issues];
     }
 
-    // Check for expected keywords (case-insensitive)
-    $keywords = FORM_KEYWORDS[$pageNum] ?? [];
-    if (!empty($keywords)) {
-        $lowerText = strtolower($text);
-        $found = false;
-        foreach ($keywords as $kw) {
-            if (str_contains($lowerText, strtolower($kw))) {
-                $found = true;
-                break;
-            }
+    // Check if we successfully extracted actual structured fields
+    $extractedFields = 0;
+    foreach ($metadata as $key => $val) {
+        if ($key !== 'raw_text' && $val && $val !== 'Not Detected') {
+            $extractedFields++;
         }
-        if (!$found) {
-            $kwList = implode('", "', $keywords);
-            $issues[] = "Page $pageNum: Could not detect expected form fields. Expected keywords like \"$kwList\".";
-        }
+    }
+
+    $text = $metadata['raw_text'] ?? '';
+    $cleaned = preg_replace('/\s+/', ' ', $text);
+    
+    // If no fields were found AND there is no readable raw text, mark as missing
+    if ($extractedFields === 0 && strlen($cleaned) < FORM_MIN_CHARS) {
+        $issues[] = "Page $pageNum appears to have very little or no readable text.";
     }
 
     return [
@@ -35,6 +33,7 @@ function validateFormPage(string $text, int $pageNum): array {
         'issues' => $issues,
     ];
 }
+
 
 /**
  * Validate an image page (page 5 or 6) by checking it is not blank.
@@ -116,4 +115,51 @@ function validateImagePage(string $imagePath, int $pageNum, string $label): arra
         'valid'  => empty($issues),
         'issues' => $issues,
     ];
+}
+
+/**
+ * Route validation to the appropriate function based on type and metadata.
+ */
+function validatePage(array $metadata, string $type, int $pageNum): bool {
+    $text = $metadata['raw_text'] ?? '';
+    
+    if ($type === 'form') {
+        $res = validateFormPage($metadata, $pageNum);
+        return $res['valid'];
+    }
+    
+    if ($type === 'id_picture' || $type === 'documentary') {
+        $docType = $metadata['document_type'] ?? '';
+        return !empty($docType) && $docType !== 'Not Detected';
+    }
+
+    return !empty(trim($text));
+}
+
+/**
+ * Get detailed issues for a page using structured metadata.
+ */
+function getValidationIssues(array $metadata, string $type, int $pageNum): array {
+    $text = $metadata['raw_text'] ?? '';
+    
+    if ($type === 'form') {
+        $res = validateFormPage($metadata, $pageNum);
+        return $res['issues'];
+    }
+    
+    if ($type === 'id_picture' || $type === 'documentary') {
+        $issues = [];
+        $docType = $metadata['document_type'] ?? '';
+        if (empty($docType) || $docType === 'Not Detected') {
+            $issues[] = "Page $pageNum: Could not clearly identify what type of document/image this is.";
+        }
+        return $issues;
+    }
+
+    
+    if (empty(trim($text)) && $type !== 'documentary') {
+        return ["No readable text detected on this $type page."];
+    }
+    
+    return [];
 }

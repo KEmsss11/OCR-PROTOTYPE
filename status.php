@@ -44,6 +44,7 @@ echo json_encode([
     'total_pages'  => (int) $sub['total_pages'],
     'status'       => $sub['status'],
     'missing'      => json_decode($sub['missing_pages'], true) ?? [],
+    'metadata'     => json_decode($sub['metadata'], true) ?? null,
     'pages'        => $pages,
     'uploaded_at'  => $sub['uploaded_at'],
     'processed_at' => $sub['processed_at'],

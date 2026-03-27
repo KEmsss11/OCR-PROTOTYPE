@@ -19,6 +19,16 @@ define('UPLOAD_PAGES',     BASE_DIR . '/uploads/pages/');
 define('TESSERACT_BIN',    'C:/Program Files/Tesseract-OCR/tesseract.exe');
 define('GHOSTSCRIPT_BIN',  'C:/Program Files/gs/gs10.04.0/bin/gswin64c.exe');
 
+// --- Python / PaddleOCR ---
+define('PYTHON_BIN', 'python'); // or 'python3'
+define('PADDLE_SCRIPT', __DIR__ . '/ocr_paddle.py');
+
+// Gemini API Configuration
+define('GEMINI_API_KEY', 'AIzaSyDVY5t1gZI5Ej4kHaHQ432rEs1sUPzlhIA');
+if (!defined('EXTRACTION_ENGINE')) {
+    define('EXTRACTION_ENGINE', 'gemini'); // Options: 'gemini' (AI Smart Scan)
+}
+
 // --- Upload limits ---
 define('MAX_FILE_SIZE_MB', 20);
 define('MAX_FILE_SIZE_B',  MAX_FILE_SIZE_MB * 1024 * 1024);
@@ -35,11 +45,15 @@ define('DOCUMENTARY_PAGE', 6);
 // --- Form OCR Validation ---
 // Keywords that MUST appear (any one of them) on EACH form page.
 // Adjust these to match your actual form layout.
-define('FORM_KEYWORDS', [
-    1 => ['name', 'surname', 'first name', 'last name', 'applicant'],
-    2 => ['date', 'address', 'contact', 'phone', 'email'],
-    3 => ['signature', 'signed', 'witness', 'notary', 'acknowledge'],
-    4 => ['purpose', 'reason', 'description', 'remarks', 'noted'],
+// --- Form OCR Extraction ---
+// Regex patterns to find specific fields on Page 1.
+// These assume a label followed by a colon or space.
+define('EXTRACT_PATTERNS', [
+    'given_name'  => '/(?:Given[\s]*Name|First[\s]*Name)[:\s]*([A-Z\s\.\-]+)/i',
+    'last_name'   => '/(?:Last[\s]*Name|Surname|Lastname)[:\s]*([A-Z\s\.\-]+)/i',
+    'middle_name' => '/(?:Middle[\s]*Name|Middlename)[:\s]*([A-Z\s\.\-]+)/i',
+    'dob'         => '/(?:Date[\s]*of[\s]*Birth|DOB|Birthdate)[:\s]*([A-Z0-9\/\s,\.\-]+)/i',
+    'age'         => '/(?:Age)[:\s]*([0-9]{1,3})/i',
 ]);
 
 // Minimum non-whitespace character count for OCR to consider a form page "filled"

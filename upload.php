@@ -3,6 +3,14 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/process.php';
 
+// Disable error display to prevent warnings from corrupting JSON
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
+
+// Increase limits for OCR processing
+set_time_limit(300); // 5 minutes
+ini_set('memory_limit', '512M');
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 
@@ -11,6 +19,13 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['error' => 'Method not allowed.']);
     exit;
+}
+
+// Set EXTRACTION_ENGINE based on POST
+if (isset($_POST['engine']) && in_array($_POST['engine'], ['paddle', 'gemini'])) {
+    if (!defined('EXTRACTION_ENGINE')) {
+        define('EXTRACTION_ENGINE', $_POST['engine']);
+    }
 }
 
 // Validate file present
